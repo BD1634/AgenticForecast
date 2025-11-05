@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+from forecast_critic.config import Config, CriticConfig
+
+
+def setup_logging(verbose: bool = False) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="The Forecast Critic: LLM-based forecast monitoring",
+    )
+    parser.add_argument("--experiment", choices=["synthetic", "exogenous", "m5", "all"], required=True)
+    parser.add_argument("--model", type=str, default="claude-sonnet-4-20250514")
+    parser.add_argument("--n-samples", type=int, default=None)
+    parser.add_argument("--concurrency", type=int, default=5)
+    parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
+    parser.add_argument("--m5-data-dir", type=Path, default=Path("data/m5"))
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("-v", "--verbose", action="store_true")
+    return parser.parse_args()
+
+
+def build_config(args: argparse.Namespace) -> Config:
+    config = Config()
+    config.critic = CriticConfig(model=args.model, concurrency=args.concurrency)
+    config.output_dir = args.output_dir
+    config.experiment.seed = args.seed
+    config.m5.data_dir = args.m5_data_dir
+
+    if args.n_samples is not None:
+        n = args.n_samples
+        config.experiment.n_perturbed = n
+        config.experiment.n_unperturbed = n
+        config.experiment.n_generate_per_type = int(n / 0.75) + 1
+        config.experiment.n_promo_per_scenario = n
+        config.m5.n_samples = n
+
+    return config
+
+
+def main() -> None:
+    args = parse_args()
+    setup_logging(args.verbose)
+    config = build_config(args)
+
+    experiments_to_run = (
+        ["synthetic", "exogenous", "m5"] if args.experiment == "all"
+        else [args.experiment]
+    )
+
+    for exp in experiments_to_run:
+        if exp == "synthetic":
+            from forecast_critic.experiments.synthetic_experiment import run_synthetic_experiment
+            run_synthetic_experiment(config)
+        elif exp == "exogenous":
+            from forecast_critic.experiments.exogenous_experiment import run_exogenous_experiment
+            run_exogenous_experiment(config)
+        elif exp == "m5":
+            from forecast_critic.experiments.m5_experiment import run_m5_experiment
+            run_m5_experiment(config)
+
+
+if __name__ == "__main__":
+    main()
