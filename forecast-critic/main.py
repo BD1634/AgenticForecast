@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--concurrency", type=int, default=5)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--m5-data-dir", type=Path, default=Path("data/m5"))
+    parser.add_argument("--device", choices=["auto", "cpu", "mps", "cuda"], default="auto",
+        help="Device for Chronos model: auto detects MPS on Apple Silicon")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser.parse_args()
@@ -38,6 +40,7 @@ def build_config(args: argparse.Namespace) -> Config:
     config.output_dir = args.output_dir
     config.experiment.seed = args.seed
     config.m5.data_dir = args.m5_data_dir
+    config.m5.device = args.device
 
     if args.n_samples is not None:
         n = args.n_samples

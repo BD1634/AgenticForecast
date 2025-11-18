@@ -70,7 +70,7 @@ class M5Config:
         default_factory=lambda: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     )
     chronos_model: str = "amazon/chronos-t5-small"
-    device: str = "cpu"
+    device: str = "auto"  # "auto", "mps", "cpu", "cuda"
 
 
 @dataclass
