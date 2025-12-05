@@ -13,10 +13,10 @@ class PerturbationType(Enum):
 
 
 class PromotionalScenario(Enum):
-    A = "no_dep_no_spike"      # No historical lift, no forecast spike (reasonable)
-    B = "no_dep_false_spike"   # No historical lift, spurious forecast spike (unreasonable)
-    C = "dep_missing_spike"    # Historical lift, missing forecast spike (unreasonable)
-    D = "dep_correct_spike"    # Historical lift, correct forecast spike (reasonable)
+    A = "no_dep_no_spike"
+    B = "no_dep_false_spike"
+    C = "dep_missing_spike"
+    D = "dep_correct_spike"
 
 
 @dataclass
@@ -46,18 +46,18 @@ class SyntheticConfig:
 
 @dataclass
 class PerturbationConfig:
-    omega: float = 0.5         # vertical shift scale
-    beta: float = -3.0         # trend slope scaling
-    alpha: float = 3.0         # time stretch factor
-    gamma: float = 0.5         # spike magnitude scale
-    n_spikes_max: int = 3      # max number of random spikes
+    omega: float = 0.5
+    beta: float = -3.0
+    alpha: float = 3.0
+    gamma: float = 0.5
+    n_spikes_max: int = 3
 
 
 @dataclass
 class PromotionConfig:
     spike_magnitude_min: float = 2.0
     spike_magnitude_max: float = 5.0
-    spike_width: int = 1  # number of points affected by spike
+    spike_width: int = 1
 
 
 @dataclass
@@ -70,14 +70,14 @@ class M5Config:
         default_factory=lambda: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     )
     chronos_model: str = "amazon/chronos-t5-small"
-    device: str = "auto"  # "auto", "mps", "cpu", "cuda"
+    device: str = "auto"
 
 
 @dataclass
 class ExperimentConfig:
     n_perturbed: int = 250
     n_unperturbed: int = 250
-    n_generate_per_type: int = 334   # generate more, filter to worst 75%
+    n_generate_per_type: int = 334
     smape_filter_pct: float = 0.75
     n_promo_per_scenario: int = 500
     seed: int = 42
@@ -93,6 +93,26 @@ class CriticConfig:
     retry_base_delay: float = 1.0
 
 
+class FailureMode(Enum):
+    TREND_MISMATCH = "trend_mismatch"
+    VERTICAL_SHIFT = "vertical_shift"
+    VOLATILITY_COLLAPSE = "volatility_collapse"
+    SPURIOUS_SPIKE = "spurious_spike"
+    MISSING_SPIKE = "missing_spike"
+    PERIODICITY_MISMATCH = "periodicity_mismatch"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class SurgeonConfig:
+    max_iterations: int = 3
+    codegen_model: str = "claude-sonnet-4-20250514"
+    codegen_max_tokens: int = 2048
+    codegen_temperature: float = 0.0
+    safety_range_factor: float = 3.0
+    convergence_threshold: float = 0.01
+
+
 @dataclass
 class Config:
     synthetic: SyntheticConfig = field(default_factory=SyntheticConfig)
@@ -101,4 +121,5 @@ class Config:
     m5: M5Config = field(default_factory=M5Config)
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     critic: CriticConfig = field(default_factory=CriticConfig)
+    surgeon: SurgeonConfig = field(default_factory=SurgeonConfig)
     output_dir: Path = field(default_factory=lambda: Path("outputs"))

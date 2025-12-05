@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from forecast_critic.config import Config, CriticConfig
+from forecast_critic.config import Config, CriticConfig, ExperimentConfig
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="The Forecast Critic: LLM-based forecast monitoring",
     )
-    parser.add_argument("--experiment", choices=["synthetic", "exogenous", "m5", "all"], required=True)
+    parser.add_argument("--experiment", choices=["synthetic", "exogenous", "m5", "surgeon", "all"], required=True)
     parser.add_argument("--model", type=str, default="claude-sonnet-4-20250514")
     parser.add_argument("--n-samples", type=int, default=None)
     parser.add_argument("--concurrency", type=int, default=5)
@@ -73,6 +73,10 @@ def main() -> None:
         elif exp == "m5":
             from forecast_critic.experiments.m5_experiment import run_m5_experiment
             run_m5_experiment(config)
+
+        elif exp == "surgeon":
+            from forecast_critic.experiments.surgeon_experiment import run_surgeon_experiment
+            run_surgeon_experiment(config)
 
 
 if __name__ == "__main__":
