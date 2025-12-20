@@ -113,6 +113,24 @@ class SurgeonConfig:
     convergence_threshold: float = 0.01
 
 
+class BlendStrategy(Enum):
+    PICK_BEST = "pick_best"
+    WEIGHTED_AVERAGE = "weighted_avg"
+    SEGMENT_BLEND = "segment_blend"
+
+
+@dataclass
+class CommitteeConfig:
+    forecasters: list[str] = field(default_factory=lambda: [
+        "chronos", "timesfm", "lagllama",
+    ])
+    strategy: BlendStrategy = BlendStrategy.WEIGHTED_AVERAGE
+    device: str = "auto"
+    chronos_model: str = "amazon/chronos-t5-small"
+    timesfm_model: str = "google/timesfm-1.0-200m-pytorch"
+    lagllama_model: str = "time-series-foundation-models/Lag-Llama"
+
+
 @dataclass
 class Config:
     synthetic: SyntheticConfig = field(default_factory=SyntheticConfig)
@@ -122,4 +140,5 @@ class Config:
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     critic: CriticConfig = field(default_factory=CriticConfig)
     surgeon: SurgeonConfig = field(default_factory=SurgeonConfig)
+    committee: CommitteeConfig = field(default_factory=CommitteeConfig)
     output_dir: Path = field(default_factory=lambda: Path("outputs"))
