@@ -213,11 +213,69 @@ class NaiveForecaster(BaseForecaster):
         return ForecastResult(model_name=self.name, forecast=tail.copy())
 
 
+class SeasonalNaiveForecaster(BaseForecaster):
+    """Repeats the last seasonal cycle from history.
+
+    Detects the dominant period via autocorrelation, then tiles it forward.
+    Zero dependencies. Surprisingly strong baseline for seasonal data.
+    """
+    name = "seasonal_naive"
+
+    def load(self, device: str = "cpu") -> None:
+        pass
+
+    def predict(self, history: NDArray, horizon: int) -> ForecastResult:
+        # Detect dominant period via autocorrelation
+        n = len(history)
+        detrended = history - np.linspace(history[0], history[-1], n)
+        autocorr = np.correlate(detrended, detrended, mode="full")
+        autocorr = autocorr[n:]  # positive lags only
+        # Skip lag 0, find first peak
+        if len(autocorr) > 2:
+            # Find local maxima
+            peaks = []
+            for i in range(1, len(autocorr) - 1):
+                if autocorr[i] > autocorr[i - 1] and autocorr[i] > autocorr[i + 1]:
+                    peaks.append(i)
+            period = peaks[0] if peaks else horizon
+        else:
+            period = horizon
+
+        period = max(1, min(period, n))
+        # Tile the last `period` of history
+        cycle = history[-period:]
+        tiled = np.tile(cycle, (horizon // period) + 1)[:horizon]
+
+        return ForecastResult(model_name=self.name, forecast=tiled)
+
+
+class DriftForecaster(BaseForecaster):
+    """Linear extrapolation of the historical trend.
+
+    Fits a line to the last portion of history and extends it.
+    Zero dependencies. Good for trending data.
+    """
+    name = "drift"
+
+    def load(self, device: str = "cpu") -> None:
+        pass
+
+    def predict(self, history: NDArray, horizon: int) -> ForecastResult:
+        t_hist = np.arange(len(history), dtype=np.float64)
+        m, b = np.polyfit(t_hist, history, 1)
+        t_fc = np.arange(len(history), len(history) + horizon, dtype=np.float64)
+        forecast = m * t_fc + b
+        return ForecastResult(model_name=self.name, forecast=forecast)
+
+
+# Registry: name -> class
 FORECASTER_REGISTRY: dict[str, type[BaseForecaster]] = {
     "chronos": ChronosForecaster,
     "timesfm": TimesFMForecaster,
     "lagllama": LagLlamaForecaster,
     "naive": NaiveForecaster,
+    "seasonal_naive": SeasonalNaiveForecaster,
+    "drift": DriftForecaster,
 }
 
 
