@@ -13,10 +13,10 @@ class PerturbationType(Enum):
 
 
 class PromotionalScenario(Enum):
-    A = "no_dep_no_spike"
-    B = "no_dep_false_spike"
-    C = "dep_missing_spike"
-    D = "dep_correct_spike"
+    A = "no_dep_no_spike"      # No historical lift, no forecast spike (reasonable)
+    B = "no_dep_false_spike"   # No historical lift, spurious forecast spike (unreasonable)
+    C = "dep_missing_spike"    # Historical lift, missing forecast spike (unreasonable)
+    D = "dep_correct_spike"    # Historical lift, correct forecast spike (reasonable)
 
 
 @dataclass
@@ -46,18 +46,18 @@ class SyntheticConfig:
 
 @dataclass
 class PerturbationConfig:
-    omega: float = 0.5
-    beta: float = -3.0
-    alpha: float = 3.0
-    gamma: float = 0.5
-    n_spikes_max: int = 3
+    omega: float = 0.5         # vertical shift scale
+    beta: float = -3.0         # trend slope scaling
+    alpha: float = 3.0         # time stretch factor
+    gamma: float = 0.5         # spike magnitude scale
+    n_spikes_max: int = 3      # max number of random spikes
 
 
 @dataclass
 class PromotionConfig:
     spike_magnitude_min: float = 2.0
     spike_magnitude_max: float = 5.0
-    spike_width: int = 1
+    spike_width: int = 1  # number of points affected by spike
 
 
 @dataclass
@@ -70,14 +70,14 @@ class M5Config:
         default_factory=lambda: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     )
     chronos_model: str = "amazon/chronos-t5-small"
-    device: str = "auto"
+    device: str = "auto"  # "auto", "mps", "cpu", "cuda"
 
 
 @dataclass
 class ExperimentConfig:
     n_perturbed: int = 250
     n_unperturbed: int = 250
-    n_generate_per_type: int = 334
+    n_generate_per_type: int = 334   # generate more, filter to worst 75%
     smape_filter_pct: float = 0.75
     n_promo_per_scenario: int = 500
     seed: int = 42
@@ -85,6 +85,7 @@ class ExperimentConfig:
 
 @dataclass
 class CriticConfig:
+    provider: str = "anthropic"  # "anthropic" or "gemini"
     model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 1024
     temperature: float = 0.0
@@ -106,26 +107,32 @@ class FailureMode(Enum):
 @dataclass
 class SurgeonConfig:
     max_iterations: int = 3
+    codegen_provider: str = "anthropic"  # "anthropic" or "gemini"
     codegen_model: str = "claude-sonnet-4-20250514"
     codegen_max_tokens: int = 2048
     codegen_temperature: float = 0.0
+    # Safety bounds: corrected forecast must stay within this factor of original range
     safety_range_factor: float = 3.0
+    # If corrected forecast changes by less than this fraction, stop iterating
     convergence_threshold: float = 0.01
 
 
 class BlendStrategy(Enum):
-    PICK_BEST = "pick_best"
-    WEIGHTED_AVERAGE = "weighted_avg"
-    SEGMENT_BLEND = "segment_blend"
+    PICK_BEST = "pick_best"             # Critic picks the single best forecast
+    WEIGHTED_AVERAGE = "weighted_avg"    # Weighted average by critic confidence
+    SEGMENT_BLEND = "segment_blend"     # Different models for different segments
 
 
 @dataclass
 class CommitteeConfig:
     forecasters: list[str] = field(default_factory=lambda: [
-        "chronos", "timesfm", "lagllama",
+        "chronos",
+        "timesfm",
+        "lagllama",
     ])
     strategy: BlendStrategy = BlendStrategy.WEIGHTED_AVERAGE
     device: str = "auto"
+    # Model IDs for each forecaster
     chronos_model: str = "amazon/chronos-t5-small"
     timesfm_model: str = "google/timesfm-1.0-200m-pytorch"
     lagllama_model: str = "time-series-foundation-models/Lag-Llama"
@@ -142,3 +149,4 @@ class Config:
     surgeon: SurgeonConfig = field(default_factory=SurgeonConfig)
     committee: CommitteeConfig = field(default_factory=CommitteeConfig)
     output_dir: Path = field(default_factory=lambda: Path("outputs"))
+

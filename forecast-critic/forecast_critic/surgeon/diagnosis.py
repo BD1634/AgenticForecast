@@ -1,14 +1,18 @@
+"""Structured diagnosis via multimodal LLM.
+
+Takes a plot image of an unreasonable forecast and returns a structured
+JSON diagnosis identifying specific failure modes, severities, and
+affected ranges.
+"""
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import re
 from dataclasses import dataclass
 
-import anthropic
-
 from forecast_critic.config import CriticConfig, FailureMode
+from forecast_critic.llm_provider import call_vision
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FailureDiagnosis:
     failure_type: FailureMode
-    severity: float
+    severity: float  # 0.0 to 1.0
     description: str
     affected_range: tuple[int | None, int | None]
 
@@ -29,6 +33,7 @@ class Diagnosis:
 
 
 def _parse_failure_type(type_str: str) -> FailureMode:
+    """Map a string failure type to the enum, with fuzzy matching."""
     type_str = type_str.lower().strip()
     for mode in FailureMode:
         if mode.value == type_str:
@@ -49,18 +54,21 @@ def _parse_failure_type(type_str: str) -> FailureMode:
 
 
 def _extract_json(text: str) -> dict:
+    """Extract JSON from LLM response, handling markdown fencing."""
     text = text.strip()
     if text.startswith("{"):
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
+
     match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(1).strip())
         except json.JSONDecodeError:
             pass
+
     brace_start = text.find("{")
     brace_end = text.rfind("}")
     if brace_start != -1 and brace_end != -1:
@@ -68,33 +76,33 @@ def _extract_json(text: str) -> dict:
             return json.loads(text[brace_start : brace_end + 1])
         except json.JSONDecodeError:
             pass
+
     logger.warning("Could not parse diagnosis JSON from response: %s", text[:200])
     return {"failure_modes": [], "overall_description": "Parse failure"}
 
 
-def diagnose(image_bytes: bytes, prompt: str, config: CriticConfig) -> Diagnosis:
-    client = anthropic.Anthropic()
-    b64_image = base64.standard_b64encode(image_bytes).decode("utf-8")
-    message = client.messages.create(
+def diagnose(
+    image_bytes: bytes,
+    prompt: str,
+    config: CriticConfig,
+) -> Diagnosis:
+    """Send image to LLM and get a structured diagnosis."""
+    raw_text = call_vision(
+        image_bytes,
+        prompt,
+        provider=config.provider,
         model=config.model,
         max_tokens=config.max_tokens,
         temperature=config.temperature,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64_image}},
-                {"type": "text", "text": prompt},
-            ],
-        }],
     )
-    raw_text = message.content[0].text
     data = _extract_json(raw_text)
 
-    failure_modes = []
+    failure_modes: list[FailureDiagnosis] = []
     for fm in data.get("failure_modes", []):
         affected = fm.get("affected_range", [None, None])
         if not isinstance(affected, (list, tuple)) or len(affected) < 2:
             affected = [None, None]
+
         failure_modes.append(FailureDiagnosis(
             failure_type=_parse_failure_type(fm.get("type", "unknown")),
             severity=float(fm.get("severity", 0.5)),

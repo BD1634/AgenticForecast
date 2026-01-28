@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from forecast_critic.config import BlendStrategy, Config, CriticConfig, ExperimentConfig, M5Config
+from forecast_critic.llm_provider import DEFAULT_MODELS, get_default_model
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -22,7 +23,10 @@ def parse_args() -> argparse.Namespace:
         description="The Forecast Critic: LLM-based forecast monitoring",
     )
     parser.add_argument("--experiment", choices=["synthetic", "exogenous", "m5", "surgeon", "committee", "all"], required=True)
-    parser.add_argument("--model", type=str, default="claude-sonnet-4-20250514")
+    parser.add_argument("--provider", choices=["gemini", "anthropic"], default="gemini",
+        help="LLM provider: gemini (free) or anthropic (paid). Default: gemini")
+    parser.add_argument("--model", type=str, default=None,
+        help="Model ID (default: auto per provider)")
     parser.add_argument("--n-samples", type=int, default=None)
     parser.add_argument("--concurrency", type=int, default=5)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
@@ -37,7 +41,11 @@ def parse_args() -> argparse.Namespace:
 
 def build_config(args: argparse.Namespace) -> Config:
     config = Config()
-    config.critic = CriticConfig(model=args.model, concurrency=args.concurrency)
+    provider = args.provider
+    model = args.model or get_default_model(provider)
+    config.critic = CriticConfig(provider=provider, model=model, concurrency=args.concurrency)
+    config.surgeon.codegen_provider = provider
+    config.surgeon.codegen_model = model
     config.output_dir = args.output_dir
     config.experiment.seed = args.seed
     config.m5.data_dir = args.m5_data_dir
