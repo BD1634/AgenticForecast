@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ollama = ["ollama>=0.4"]
 anthropic = ["anthropic>=0.40"]
 gemini = ["google-genai>=1.0"]
 m5 = [
@@ -22,3 +23,4 @@ m5 = [
 
 [project.scripts]
 forecast-critic = "main:main"
+

@@ -1,6 +1,6 @@
 """Unified LLM provider abstraction.
 
-Supports Anthropic (paid) and Google Gemini (free tier).
+Supports Anthropic (paid), Google Gemini (free tier), and Ollama (local/free).
 All vision + text calls throughout the codebase route through here.
 """
 from __future__ import annotations
@@ -160,22 +160,86 @@ async def _call_gemini_vision_async(
     return response.text
 
 
+# ── Ollama (local) ──────────────────────────────────────────────────────
+
+
+def _call_ollama_vision(
+    image_bytes: bytes,
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
+    import ollama
+
+    response = ollama.chat(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": prompt,
+            "images": [image_bytes],
+        }],
+        options={"temperature": temperature, "num_predict": max_tokens},
+    )
+    return response.message.content
+
+
+def _call_ollama_text(
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
+    import ollama
+
+    response = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": temperature, "num_predict": max_tokens},
+    )
+    return response.message.content
+
+
+async def _call_ollama_vision_async(
+    image_bytes: bytes,
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
+    import ollama
+
+    client = ollama.AsyncClient()
+    response = await client.chat(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": prompt,
+            "images": [image_bytes],
+        }],
+        options={"temperature": temperature, "num_predict": max_tokens},
+    )
+    return response.message.content
+
 
 # ── Public API ──────────────────────────────────────────────────────────
 
 _VISION_DISPATCH = {
     "anthropic": _call_anthropic_vision,
     "gemini": _call_gemini_vision,
+    "ollama": _call_ollama_vision,
 }
 
 _TEXT_DISPATCH = {
     "anthropic": _call_anthropic_text,
     "gemini": _call_gemini_text,
+    "ollama": _call_ollama_text,
 }
 
 _VISION_ASYNC_DISPATCH = {
     "anthropic": _call_anthropic_vision_async,
     "gemini": _call_gemini_vision_async,
+    "ollama": _call_ollama_vision_async,
 }
 
 
@@ -230,6 +294,7 @@ async def call_vision_async(
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-20250514",
     "gemini": "gemini-2.0-flash",
+    "ollama": "llama3.2-vision",
 }
 
 
