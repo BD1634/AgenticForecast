@@ -12,6 +12,9 @@ AgenticForecast explores the intersection of **agentic AI** and **time-series fo
 | **Committee** | Ensemble of forecasters (Chronos, TimesFM, naive) with LLM-driven blending strategies |
 | **Surgeon** | Self-healing pipeline: diagnose failure modes → apply corrections (hardcoded or codegen) → re-evaluate until approved |
 
+<img width="1440" height="1240" alt="image" src="https://github.com/user-attachments/assets/e34ce8ce-a456-4e13-a5d8-04d597942728" />
+
+
 Supports **Ollama** (local), **Google Gemini** (free tier), and **Anthropic** (paid).
 
 ## Installation
